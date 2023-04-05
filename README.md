@@ -14,7 +14,7 @@ Original VIC-20 core by [MikeJ (Mike Johnson)](https://www.fpgaarcade.com/author
 * Partly/fully Loadable system ROM for C1541, Kernal and Basic.
 * Scandoubler with HQ2x and Scanlines
 * PAL/NTSC TV modes
-* Joystick support
+* Joystick/Paddles support
 
 ## Instructions
 
