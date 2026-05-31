@@ -235,6 +235,9 @@ parameter CONF_STR = {
 	"-;",
 	"OU,Swap paddles,No,Yes;",
 	"-;",
+	"O[32],SNAC Joystick,Off,On;",
+	"O[34:33],SNAC Autofire,Off,Slow,Fast;",
+	"-;",
 	"R0,Reset;",
 	"RR,Reset & Detach Cartridge;",
 	"J,Fire,Paddle Fire|P;",
@@ -334,7 +337,7 @@ end
 
 /////////////////  HPS  ///////////////////////////
 
-wire [31:0] status;
+wire [63:0] status;
 wire  [1:0] buttons;
 
 wire  [7:0] pd1,pd2;
@@ -603,6 +606,26 @@ wire [7:0] mc_data = mc_nvram_sel ? mc_nvram_out : sdram_out;
 
 wire [15:0] joy = joya | joyb;
 
+// SNAC Joystick support via UserIO (DB9 pinout)
+// DB9 Pin 1 Up     -> USER_IN[1]
+// DB9 Pin 2 Down   -> USER_IN[0]
+// DB9 Pin 3 Left   -> USER_IN[5]
+// DB9 Pin 4 Right  -> USER_IN[3]
+// DB9 Pin 5 NC
+// DB9 Pin 6 Fire   -> USER_IN[2]
+wire        snac_en     = status[32];
+// snac_joy[4]=fire, [3]=up, [2]=down, [1]=left, [0]=right – active high
+wire [4:0]  snac_joy    = {~USER_IN[2], ~USER_IN[1], ~USER_IN[0], ~USER_IN[5], ~USER_IN[3]};
+
+// SNAC Autofire: oscillatore software, non richiede +5V hardware (DB9 Pin 5)
+wire [1:0]  snac_af_mode = status[34:33];
+reg  [21:0] snac_af_cnt;
+always @(posedge clk_sys) snac_af_cnt <= snac_af_cnt + 1'd1;
+// Slow ~8.4 Hz | Fast ~16.8 Hz  (clk_sys ~35 MHz PAL)
+wire        snac_af_clk  = (snac_af_mode == 2'd2) ? snac_af_cnt[20] : snac_af_cnt[21];
+wire [4:0]  snac_joy_af  = {snac_af_mode ? (snac_joy[4] & snac_af_clk) : snac_joy[4],
+                            snac_joy[3:0]};
+
 reg [10:0] v20_key;
 always @(posedge clk_sys) begin
 	reg [10:0] key;
@@ -628,8 +651,10 @@ VIC20 VIC20
 	.clk_i(c1541_iec_clk_o & ext_iec_clk),
 	.data_i(c1541_iec_data_o & ext_iec_data),
 
-	.i_joy(~{joy[0] | (status[30] ? joya[5] : joyb[5]),joy[1] | (status[30] ? joyb[5] : joya[5]),joy[2],joy[3]}),
-	.i_fire(~joy[4]),
+	.i_joy(snac_en
+		? ~{snac_joy_af[0], snac_joy_af[1], snac_joy_af[2], snac_joy_af[3]}
+		: ~{joy[0] | (status[30] ? joya[5] : joyb[5]),joy[1] | (status[30] ? joyb[5] : joya[5]),joy[2],joy[3]}),
+	.i_fire(snac_en ? ~snac_joy_af[4] : ~joy[4]),
 	.i_potx(~(status[30] ? pd2 : pd1)),
 	.i_poty(~(status[30] ? pd1 : pd2)),
 
@@ -852,15 +877,16 @@ always @(negedge clk_sys) begin
 end
 
 wire ext_iec_en   = status[21];
-wire ext_iec_clk  = USER_IN[2] | ~ext_iec_en;
-wire ext_iec_data = USER_IN[4] | ~ext_iec_en;
+// Quando SNAC e' attivo, esclude i pin USER dall'IEC (mutualmente esclusivi)
+wire ext_iec_clk  = USER_IN[2] | ~ext_iec_en | snac_en;
+wire ext_iec_data = USER_IN[4] | ~ext_iec_en | snac_en;
 
 assign USER_OUT[0] = 1;
 assign USER_OUT[1] = 1;
-assign USER_OUT[2] = (v20_iec_clk_o & c1541_iec_clk_o)  | ~ext_iec_en;
-assign USER_OUT[3] = ~(reset|tv_reset) | ~ext_iec_en;
-assign USER_OUT[4] = (v20_iec_data_o & c1541_iec_data_o) | ~ext_iec_en;
-assign USER_OUT[5] = v20_iec_atn_o | ~ext_iec_en;
+assign USER_OUT[2] = snac_en | (v20_iec_clk_o & c1541_iec_clk_o)  | ~ext_iec_en;
+assign USER_OUT[3] = snac_en | ~(reset|tv_reset) | ~ext_iec_en;
+assign USER_OUT[4] = snac_en | (v20_iec_data_o & c1541_iec_data_o) | ~ext_iec_en;
+assign USER_OUT[5] = snac_en | v20_iec_atn_o | ~ext_iec_en;
 assign USER_OUT[6] = 1;
 
 /////////////////////////////////////////////////
