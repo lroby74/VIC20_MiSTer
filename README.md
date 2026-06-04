@@ -15,7 +15,8 @@ Original VIC-20 core by [MikeJ (Mike Johnson)](https://www.fpgaarcade.com/author
 * Scandoubler with HQ2x and Scanlines
 * PAL/NTSC TV modes
 * Joystick support
-
+* Snac support for DB9 joysticks (with 2 speed autofire) (via UserIO port)
+   
 ## Instructions
 
 System ROM can be loaded from SD card. Put boot.rom into VIC20 folder.  
