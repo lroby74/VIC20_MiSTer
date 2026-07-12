@@ -35,20 +35,27 @@ use IEEE.numeric_std.ALL;
 
 entity fpga64_keyboard is
 	port (
-		clk         : in  std_logic;
-		reset       : in  std_logic;
+		clk     : in std_logic;
+		reset   : in std_logic;
 		
-		ps2_key     : in  std_logic_vector(10 downto 0);
+		ps2_key : in std_logic_vector(10 downto 0);
+		joyA    : in unsigned(6 downto 0);
+		joyB    : in unsigned(6 downto 0);
+		
+		shift_mod: in std_logic_vector(1 downto 0);
 
-		pai         : in  std_logic_vector(7 downto 0);
-		pbi         : in  std_logic_vector(7 downto 0);
-		pao         : out std_logic_vector(7 downto 0);
-		pbo         : out std_logic_vector(7 downto 0);
+		pai     : in unsigned(7 downto 0);
+		pbi     : in unsigned(7 downto 0);
+		pao     : out unsigned(7 downto 0);
+		pbo     : out unsigned(7 downto 0);
 		
-		reset_key   : out std_logic;
 		restore_key : out std_logic;
 		mod_key     : out std_logic;
 		tape_play   : out std_logic;
+		tape_rew    : out std_logic;
+		tape_stop   : out std_logic;
+		tape_ff     : out std_logic;
+		tape_reset_counter : out std_logic;
 		
 		-- Config
 		-- backwardsReadingEnabled = 1 allows reversal of PIA registers to still work.
@@ -142,6 +149,7 @@ architecture rtl of fpga64_keyboard is
 
 	signal mod_key1: std_logic := '0';
 	signal mod_key2: std_logic := '0';
+	signal mod_key_t: std_logic := '0';
 
 	signal key_shift: std_logic := '0';
 	signal key_inst: std_logic := '0';
@@ -155,6 +163,13 @@ architecture rtl of fpga64_keyboard is
 	signal ps2_stb   : std_logic;
 	signal key_8s    : std_logic := '0';
 
+	-- Used to remap shift + number:
+	signal phys_6: std_logic := '0';
+	signal phys_7: std_logic := '0';
+	signal phys_8: std_logic := '0';
+	signal phys_9: std_logic := '0';
+	signal phys_0: std_logic := '0';
+
 begin
 
 	delay_end <= '1' when delay_cnt = 0 else '0';
@@ -162,7 +177,9 @@ begin
 	pressed <= ps2_key(9);
 	extended<= ps2_key(8) = '1';
 
-	mod_key <= mod_key1 or mod_key2;
+	mod_key_t <= (mod_key1 or mod_key2) and pressed;
+	mod_key   <= mod_key1 or mod_key2;
+
 	key_shift <= key_shiftl or key_shiftr;
 	
 	matrix: process(clk)
@@ -175,8 +192,16 @@ begin
 				delay_cnt <= delay_cnt - 1;
 			end if;
 
+			-- Datassette shortcuts are command pulses, not held key states.
+			tape_play <= '0';
+			tape_rew <= '0';
+			tape_stop <= '0';
+			tape_ff <= '0';
+			tape_reset_counter <= '0';
+
+
 			-- reading A, scan pattern on B
-			pao(0) <= pai(0) and
+			pao(0) <= pai(0) and joyB(0) and
 				((not backwardsReadingEnabled) or
 				((pbi(0) or not (key_del or key_inst)) and
 				(pbi(1) or not key_return) and
@@ -186,7 +211,7 @@ begin
 				(pbi(5) or not (key_F3 or key_F4)) and
 				(pbi(6) or not (key_F5 or key_F6)) and
 				(pbi(7) or not (key_up or key_down))));
-			pao(1) <= pai(1) and
+			pao(1) <= pai(1) and joyB(1) and
 				((not backwardsReadingEnabled) or
 				((pbi(0) or not key_3) and
 				(pbi(1) or not key_W) and
@@ -195,8 +220,8 @@ begin
 				(pbi(4) or not key_Z) and
 				(pbi(5) or not key_S) and
 				(pbi(6) or not key_E) and
-				(pbi(7) or not (key_left or key_up or (key_shiftl and not key_8s) or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8))));
-			pao(2) <= pai(2) and
+				(pbi(7) or not (((key_left or key_up or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8) and shift_mod(1)) or (key_shiftl and not key_8s)))));
+			pao(2) <= pai(2) and joyB(2) and
 				((not backwardsReadingEnabled) or
 				((pbi(0) or not key_5) and
 				(pbi(1) or not key_R) and
@@ -206,7 +231,7 @@ begin
 				(pbi(5) or not key_F) and
 				(pbi(6) or not key_T) and
 				(pbi(7) or not key_X)));
-			pao(3) <= pai(3) and
+			pao(3) <= pai(3) and joyB(3) and
 				((not backwardsReadingEnabled) or
 				((pbi(0) or not key_7) and
 				(pbi(1) or not key_Y) and
@@ -216,7 +241,7 @@ begin
 				(pbi(5) or not key_H) and
 				(pbi(6) or not key_U) and
 				(pbi(7) or not key_V)));
-			pao(4) <= pai(4) and
+			pao(4) <= pai(4) and joyB(4) and
 				((not backwardsReadingEnabled) or
 				((pbi(0) or not key_9) and
 				(pbi(1) or not key_I) and
@@ -242,7 +267,7 @@ begin
 				(pbi(1) or not (key_star or (key_8s and delay_end))) and
 				(pbi(2) or not key_semicolon) and
 				(pbi(3) or not key_home) and
-				(pbi(4) or not (key_left or key_up or (key_shiftr and not key_8s) or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8)) and
+				(pbi(4) or not (((key_left or key_up or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8) and shift_mod(0)) or (key_shiftr and not key_8s))) and
 				(pbi(5) or not key_equal) and
 				(pbi(6) or not key_arrowup) and
 				(pbi(7) or not key_slash)));
@@ -250,15 +275,15 @@ begin
 				((not backwardsReadingEnabled) or
 				((pbi(0) or not key_1) and
 				(pbi(1) or not key_arrowleft) and
-				(pbi(2) or not key_ctrl) and
+				(pbi(2) or not (key_ctrl or not joyA(6) or not joyB(6))) and
 				(pbi(3) or not key_2) and
-				(pbi(4) or not key_space) and
+				(pbi(4) or not (key_space or not joyA(5) or not joyB(5))) and
 				(pbi(5) or not (key_commodore or key_caps)) and
 				(pbi(6) or not key_Q) and
 				(pbi(7) or not key_runstop)));
 
 			-- reading B, scan pattern on A
-			pbo(0) <= pbi(0) and 
+			pbo(0) <= pbi(0) and joyA(0) and 
 				(pai(0) or not (key_del or key_inst)) and
 				(pai(1) or not key_3) and
 				(pai(2) or not key_5) and
@@ -267,7 +292,7 @@ begin
 				(pai(5) or not key_plus) and
 				(pai(6) or not key_pound) and
 				(pai(7) or not key_1);
-			pbo(1) <= pbi(1) and
+			pbo(1) <= pbi(1) and joyA(1) and
 				(pai(0) or not key_return) and
 				(pai(1) or not key_W) and
 				(pai(2) or not key_R) and
@@ -276,7 +301,7 @@ begin
 				(pai(5) or not key_P) and
 				(pai(6) or not (key_star or (key_8s and delay_end))) and
 				(pai(7) or not key_arrowleft);
-			pbo(2) <= pbi(2) and
+			pbo(2) <= pbi(2) and joyA(2) and
 				(pai(0) or not (key_left or key_right)) and
 				(pai(1) or not key_A) and
 				(pai(2) or not key_D) and
@@ -284,8 +309,8 @@ begin
 				(pai(4) or not key_J) and
 				(pai(5) or not key_L) and
 				(pai(6) or not key_semicolon) and
-				(pai(7) or not key_ctrl);
-			pbo(3) <= pbi(3) and
+				(pai(7) or not (key_ctrl or not joyA(6) or not joyB(6)));
+			pbo(3) <= pbi(3) and joyA(3) and
 				(pai(0) or not (key_F7 or key_F8)) and
 				(pai(1) or not key_4) and
 				(pai(2) or not key_6) and
@@ -294,15 +319,15 @@ begin
 				(pai(5) or not key_minus) and
 				(pai(6) or not key_home) and
 				(pai(7) or not key_2);
-			pbo(4) <= pbi(4) and
+			pbo(4) <= pbi(4) and joyA(4) and
 				(pai(0) or not (key_F1 or key_F2)) and
 				(pai(1) or not key_Z) and
 				(pai(2) or not key_C) and
 				(pai(3) or not key_B) and
 				(pai(4) or not key_M) and
 				(pai(5) or not key_dot) and
-				(pai(6) or not (key_left or key_up or (key_shiftr and not key_8s) or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8)) and
-				(pai(7) or not key_space);
+				(pai(6) or not (((key_left or key_up or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8) and shift_mod(0)) or (key_shiftr and not key_8s))) and
+				(pai(7) or not (key_space or not joyA(5) or not joyB(5)));
 			pbo(5) <= pbi(5) and
 				(pai(0) or not (key_F3 or key_F4)) and
 				(pai(1) or not key_S) and
@@ -323,7 +348,7 @@ begin
 				(pai(7) or not key_Q);
 			pbo(7) <= pbi(7) and
 				(pai(0) or not (key_up or key_down)) and
-				(pai(1) or not (key_left or key_up or (key_shiftl and not key_8s) or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8)) and
+				(pai(1) or not (((key_left or key_up or key_caps or key_inst or key_F2 or key_F4 or key_F6 or key_F8) and shift_mod(1)) or (key_shiftl and not key_8s))) and
 				(pai(2) or not key_X) and
 				(pai(3) or not key_V) and
 				(pai(4) or not key_N) and
@@ -374,24 +399,18 @@ begin
 					when X"33" => key_H <= pressed; 
 					when X"34" => key_G <= pressed; 
 					when X"35" => key_Y <= pressed; 
-					when X"36" => key_7 <= pressed and     key_shift;
-									  key_6 <= pressed and not key_shift;
+					when X"36" => phys_6 <= pressed;
 					when X"3A" => key_M <= pressed; 
 					when X"3B" => key_J <= pressed; 
 					when X"3C" => key_U <= pressed; 
-					when X"3D" => key_6 <= pressed and     key_shift;
-									  key_7 <= pressed and not key_shift;
-					when X"3E" => key_8s <= pressed and    key_shift;
-									  key_8 <= pressed and not key_shift;
-									  delay_cnt <= 300000;
+					when X"3D" => phys_7 <= pressed;
+					when X"3E" => phys_8 <= pressed; delay_cnt <= 300000;
 					when X"41" => key_comma <= pressed; 
 					when X"42" => key_K <= pressed;
 					when X"43" => key_I <= pressed; 
 					when X"44" => key_O <= pressed; 
-					when X"45" => key_9 <= pressed and     key_shift;
-									  key_0 <= pressed and not key_shift;
-					when X"46" => key_8 <= pressed and     key_shift;
-									  key_9 <= pressed and not key_shift;
+					when X"45" => phys_0 <= pressed;
+					when X"46" => phys_9 <= pressed;
 					when X"49" => key_dot <= pressed; 
 					when X"4A" => key_slash <= pressed; 
 					when X"4B" => key_L <= pressed; 
@@ -407,34 +426,39 @@ begin
 					when X"5B" => key_star <= pressed; 
 					when X"5D" => key_pound <= pressed;
 					when X"66" => key_del <= pressed; 
-					when X"69" => if extended then key_equal   <= pressed; else key_1   <= pressed; end if;
-					when X"6B" => if extended then key_left    <= pressed; else key_4   <= pressed; end if;
-					when X"6C" => if extended then key_home    <= pressed; else key_7   <= pressed; end if;
-					when X"70" => if extended then key_inst    <= pressed; else key_0   <= pressed; end if;
-					when X"71" => if extended then key_del     <= pressed; else key_dot <= pressed; end if;
-					when X"72" => if extended then key_down    <= pressed; else key_2   <= pressed; end if;
-					when X"73" => key_5 <= pressed; 
-					when X"74" => if extended then key_right   <= pressed; else key_6   <= pressed; end if;
-					when X"75" => if extended then key_up      <= pressed; else key_8   <= pressed; end if;
-					when X"76" => key_runstop <= pressed; 
-					when X"79" => key_plus <= pressed; 
-					when X"7A" => if extended then key_arrowup <= pressed; else key_3   <= pressed; end if;
-					when X"7B" => key_minus <= pressed; 
-					when X"7C" => key_star <= pressed; 
-					when X"7D" => if extended then tape_play <= pressed; else key_9   <= pressed; end if;
-					when X"78" => -- F11
-						if pressed ='1' and key_ctrl = '1' then
-							reset_key <= '1';
-						elsif pressed ='1' and key_ctrl = '0' then
-							restore_key <= '1';
-						else
-							reset_key <= '0';
-							restore_key <= '0';
-						end if;
+					when X"69" => if not extended then key_1   <= pressed; else  key_equal <= pressed; end if;
+					when X"6B" => if not extended then key_4   <= pressed; elsif mod_key_t = '1'       then tape_rew <= '1';           else key_left <= pressed;  end if;
+					when X"6C" => if not extended then key_7   <= pressed; else  key_home <= pressed;  end if;
+					when X"70" => if not extended then key_0   <= pressed; else  key_inst <= pressed;  end if;
+					when X"71" => if not extended then key_dot <= pressed; elsif mod_key_t = '1'       then tape_reset_counter <= '1'; else key_del <= pressed;   end if;
+					when X"72" => if not extended then key_2   <= pressed; elsif mod_key_t = '1'       then tape_stop <= '1';          else key_down <= pressed;  end if;
+					when X"73" => key_5 <= pressed;
+					when X"74" => if not extended then key_6   <= pressed; elsif mod_key_t = '1'       then tape_ff <= '1';            else key_right <= pressed; end if;
+					when X"75" => if not extended then key_8   <= pressed; elsif mod_key_t = '1'       then tape_play <= '1';          else key_up <= pressed;    end if;
+					when X"76" => key_runstop <= pressed;
+					when X"78" => restore_key <= pressed; -- F11
+					when X"79" => key_plus <= pressed;
+					when X"7A" => if not extended then key_3   <= pressed; else  key_arrowup<=pressed; end if;
+					when X"7B" => key_minus <= pressed;
+					when X"7C" => key_star <= pressed;
+					when X"7D" => if not extended then key_9   <= pressed; elsif pressed = '1'         then tape_play <= '1'; end if;
 					when others => null;
 				end case;
 			end if;
-			
+
+			-- Remap without dropping keystrokes:
+			-- shift-7 to shift-6
+			key_6  <= (phys_6 and not key_shift) or (phys_7 and key_shift);
+			-- shift-6 to shift-7
+			key_7  <= (phys_7 and not key_shift) or (phys_6 and key_shift);
+			-- shift-8 to * (uses delay_cnt so shift is suppressed for * register)
+			key_8s <=  phys_8 and key_shift;
+			-- shift 9 to shift-8
+			key_8  <= (phys_8 and not key_shift) or (phys_9 and key_shift);
+			-- shift-0 to shift-9
+		    key_9  <= (phys_9 and not key_shift) or (phys_0 and key_shift);
+			key_0  <=  phys_0 and not key_shift;
+
 			if reset = '1' then
 					key_F1        <= '0';
 					key_F2        <= '0';
@@ -453,6 +477,10 @@ begin
 					key_runstop   <= '0';
 					restore_key   <= '0';
 					tape_play     <= '0';
+					tape_rew      <= '0';
+					tape_stop     <= '0';
+					tape_ff       <= '0';
+					tape_reset_counter <= '0';
 					key_arrowup   <= '0';
 					key_equal     <= '0';
 					key_arrowleft <= '0';
@@ -487,6 +515,11 @@ begin
 					key_8s        <= '0';
 					key_9         <= '0';
 					key_0         <= '0';
+					phys_6        <= '0';
+					phys_7        <= '0';
+					phys_8        <= '0';
+					phys_9        <= '0';
+					phys_0        <= '0';
 					key_Q         <= '0'; 
 					key_Z         <= '0'; 
 					key_S         <= '0'; 
