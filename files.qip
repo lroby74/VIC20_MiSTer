@@ -16,4 +16,9 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/c1530.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/m6561.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/via6522.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/vic20_core.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/drv_overlay.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/tap_scanner.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/tap_time_map.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/tape_counter.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/tape_subsystem.sv
 set_global_assignment -name SYSTEMVERILOG_FILE VIC20.sv
