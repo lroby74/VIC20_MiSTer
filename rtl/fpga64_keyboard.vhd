@@ -49,6 +49,10 @@ entity fpga64_keyboard is
 		restore_key : out std_logic;
 		mod_key     : out std_logic;
 		tape_play   : out std_logic;
+		tape_rew    : out std_logic;
+		tape_stop   : out std_logic;
+		tape_ff     : out std_logic;
+		tape_reset_counter : out std_logic;
 		
 		-- Config
 		-- backwardsReadingEnabled = 1 allows reversal of PIA registers to still work.
@@ -174,6 +178,13 @@ begin
 			if delay_cnt /= 0 then
 				delay_cnt <= delay_cnt - 1;
 			end if;
+
+			-- Tape shortcuts are command pulses, not held key states
+			tape_play <= '0';
+			tape_rew <= '0';
+			tape_stop <= '0';
+			tape_ff <= '0';
+			tape_reset_counter <= '0';
 
 			-- reading A, scan pattern on B
 			pao(0) <= pai(0) and
@@ -408,14 +419,14 @@ begin
 					when X"5D" => key_pound <= pressed;
 					when X"66" => key_del <= pressed; 
 					when X"69" => if extended then key_equal   <= pressed; else key_1   <= pressed; end if;
-					when X"6B" => if extended then key_left    <= pressed; else key_4   <= pressed; end if;
+					when X"6B" => if extended then key_left    <= pressed; elsif (mod_key1 or mod_key2) = '1' then tape_rew <= '1'; else key_4   <= pressed; end if;
 					when X"6C" => if extended then key_home    <= pressed; else key_7   <= pressed; end if;
 					when X"70" => if extended then key_inst    <= pressed; else key_0   <= pressed; end if;
-					when X"71" => if extended then key_del     <= pressed; else key_dot <= pressed; end if;
-					when X"72" => if extended then key_down    <= pressed; else key_2   <= pressed; end if;
+					when X"71" => if extended then key_del     <= pressed; elsif (mod_key1 or mod_key2) = '1' then tape_reset_counter <= '1'; else key_dot <= pressed; end if;
+					when X"72" => if extended then key_down    <= pressed; elsif (mod_key1 or mod_key2) = '1' then tape_stop <= '1'; else key_2   <= pressed; end if;
 					when X"73" => key_5 <= pressed; 
-					when X"74" => if extended then key_right   <= pressed; else key_6   <= pressed; end if;
-					when X"75" => if extended then key_up      <= pressed; else key_8   <= pressed; end if;
+					when X"74" => if extended then key_right   <= pressed; elsif (mod_key1 or mod_key2) = '1' then tape_ff <= '1'; else key_6   <= pressed; end if;
+					when X"75" => if extended then key_up      <= pressed; elsif (mod_key1 or mod_key2) = '1' then tape_play <= '1'; else key_8   <= pressed; end if;
 					when X"76" => key_runstop <= pressed; 
 					when X"79" => key_plus <= pressed; 
 					when X"7A" => if extended then key_arrowup <= pressed; else key_3   <= pressed; end if;
@@ -453,6 +464,10 @@ begin
 					key_runstop   <= '0';
 					restore_key   <= '0';
 					tape_play     <= '0';
+					tape_rew      <= '0';
+					tape_stop     <= '0';
+					tape_ff       <= '0';
+					tape_reset_counter <= '0';
 					key_arrowup   <= '0';
 					key_equal     <= '0';
 					key_arrowleft <= '0';
