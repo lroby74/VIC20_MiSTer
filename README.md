@@ -16,12 +16,16 @@ Original VIC-20 core by [MikeJ (Mike Johnson)](https://www.fpgaarcade.com/author
 * PAL/NTSC TV modes
 * Joystick support
 * Snac support for DB9 joysticks (with 2 speed autofire) (via UserIO port)
-   
+* Complete C1530 Datasette implementation with on screen Counter and shortcuts keys
+* 
 ## Instructions
 
 System ROM can be loaded from SD card. Put boot.rom into VIC20 folder.  
 Content of boot.rom: C1541(16KB) + PAL kernal(8KB) + NTSC kernal(8KB)  
 You can load only part of whole ROM, for example only C1541 + PAL kernal (JiffyDOS).
+
+C1530 and tape support
+In OSD->Load *.TAP and choose a TAP file. When a TAP is mounted, on OSD all the commands for managing the C1530 will appear and the keyboard shortcuts will also be enabled. For show counter on display (HDMI and CRT), enable Tape Counter on OSD and save settings.
 
 There are 2 ways to reset the VIC20:
 1. lctrl+lalt+ralt - cold reset with cartridge unloading - must be done before loading the new game!
