@@ -58,6 +58,10 @@ always_ff @(posedge clk32 or posedge restart_tape) begin
 		tap_fifo_rdreq  <= 1'b0;
 		tap_fifo_error  <= 1'b0;
 		{motor, cass_read} <= 2'b11;
+		// Clear motor-momentum state so a restart does not inherit a
+		// half-elapsed delay (and so sim/FPGA POR are deterministic).
+		cass_motor_D  <= 1'b1;
+		motor_counter <= 24'd0;
 	end else begin
 		// simulate tape motor momentum
 		cass_motor_D <= cass_motor;

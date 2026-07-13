@@ -64,7 +64,7 @@ end;
 architecture RTL of VIC20_CLOCKS is
 
   signal delay_count : unsigned(11 downto 0) := (others => '0');
-  signal div_cnt     : std_logic;
+  signal div_cnt     : std_logic := '0';  -- power-up / sim-safe init (FPGA POR)
 
 begin
   p_delay : process(I_RESET_L, I_SYSCLK)

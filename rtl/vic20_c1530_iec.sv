@@ -66,22 +66,25 @@ always_ff @(posedge clk32 or negedge reset_n) begin
 		tape_ff_r <= 1'b0;
 		tape_reset_counter_r <= 1'b0;
 		
-		// Detect PS2 key changes
+		// Detect PS2 key changes (toggle on bit[10]).
+		// Use the CURRENT event's pressed/extended bits directly: registering
+		// them and then sampling the registers in the same cycle used the
+		// PREVIOUS event's values (1-key lag on extended/release).
 		ps2_key_prev <= ps2_key;
-		
+
 		if (ps2_key[10] != ps2_key_prev[10]) begin
-			pressed <= ps2_key[9];
+			pressed  <= ps2_key[9];
 			extended <= ps2_key[8];
-			
+
 			// Tape control shortcuts with modifier key
 			if (mod_key) begin
 				case (ps2_key[7:0])
-					8'h6B: tape_rew_r <= pressed;              // Numpad-4 + Mod = Rewind
-					8'h71: tape_reset_counter_r <= pressed;  // Numpad-Del + Mod = Counter Reset
-					8'h72: tape_stop_r <= pressed;            // Numpad-2 + Mod = Stop
-					8'h74: tape_ff_r <= pressed;              // Numpad-6 + Mod = Fast Forward
-					8'h75: tape_play_r <= pressed;            // Numpad-8 + Mod = Play
-					8'h7D: if (extended) tape_play_r <= pressed; // Extended key for Play
+					8'h6B: tape_rew_r <= ps2_key[9];                 // Numpad-4 + Mod = Rewind
+					8'h71: tape_reset_counter_r <= ps2_key[9];       // Numpad-Del + Mod = Counter Reset
+					8'h72: tape_stop_r <= ps2_key[9];                // Numpad-2 + Mod = Stop
+					8'h74: tape_ff_r <= ps2_key[9];                  // Numpad-6 + Mod = Fast Forward
+					8'h75: tape_play_r <= ps2_key[9];                // Numpad-8 + Mod = Play
+					8'h7D: if (ps2_key[8]) tape_play_r <= ps2_key[9]; // Extended key for Play
 					default: ;
 				endcase
 			end
