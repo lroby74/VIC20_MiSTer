@@ -13,6 +13,7 @@ set_global_assignment -name VERILOG_FILE rtl/megacart.v
 set_global_assignment -name VHDL_FILE rtl/vic20_clocks.vhd
 set_global_assignment -name VHDL_FILE rtl/fpga64_keyboard.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/c1530.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/vic20_c1530_iec.sv
 set_global_assignment -name VHDL_FILE rtl/m6561.vhd
 set_global_assignment -name VHDL_FILE rtl/via6522.vhd
 set_global_assignment -name VHDL_FILE rtl/vic20.vhd
